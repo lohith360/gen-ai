@@ -1,0 +1,39 @@
+!pip install diffusers transformers accelerate -q
+import torch
+from diffusers import StableDiffusionInpaintPipeline
+from PIL import Image
+import requests
+from io import BytesIO
+import matplotlib.pyplot as plt
+
+# 1. Setup Model (Using torch.float16 for speed and lower VRAM)
+device = "cuda"
+model_path = "runwayml/stable-diffusion-inpainting"
+
+pipe = StableDiffusionInpaintPipeline.from_pretrained(
+    model_path, 
+    torch_dtype=torch.float16
+).to(device)
+
+# 2. Load Sample Image & Mask
+url = "https://raw.githubusercontent.com/CompVis/latent-diffusion/main/data/inpainting_examples/overture-creations-5s5n_S6SU0U.png"
+response = requests.get(url)
+init_image = Image.open(BytesIO(response.content)).convert("RGB").resize((512, 512))
+
+# Create a simple mask (black background with a white circle to fill)
+mask_image = Image.new("L", (512, 512), 0)
+from PIL import ImageDraw
+draw = ImageDraw.Draw(mask_image)
+draw.ellipse((150, 150, 350, 350), fill=255)
+
+# 3. Generate
+prompt = "A futuristic robotic cat sitting in a jungle, high resolution, digital art"
+output_image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
+
+# 4. Display Output
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 2, 1)
+plt.imshow(init_image); plt.title("Input"); plt.axis('off')
+plt.subplot(1, 2, 2)
+plt.imshow(output_image); plt.title("Output"); plt.axis('off')
+plt.show()
